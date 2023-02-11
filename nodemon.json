@@ -1,6 +1,10 @@
 {
   "watch": [
-    "src/"
+    "src/",
+    "package.json",
+    "tsconfig.json",
+    "migrations/*"
   ],
-  "ext": "js,json,ts"
+  "ext": "js,json,ts,sql",
+  "signal": "SIGTERM"
 }
