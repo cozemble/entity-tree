@@ -68,7 +68,7 @@ const carModel: Entity = {
 const carRecord: Entity = {
     id: '445677',
     entityName: 'Record',
-    data: {modelId: "877655", "make": "Ford", "model": "Fiesta", "year": 2005},
+    data: {"modelId": "877655", "make": "Ford", "model": "Fiesta", "year": 2005},
     path: '/tenants/86786/records/445677'
 }
 
