@@ -1,5 +1,8 @@
 -- noinspection SqlNoDataSourceInspectionForFile
 
+CREATE USER appuser WITH LOGIN PASSWORD 'appuser';
+GRANT ALL PRIVILEGES ON DATABASE test to appuser;
+
 CREATE TABLE restricted_entity
 (
     entity_id   VARCHAR NOT NULL UNIQUE,
@@ -10,6 +13,9 @@ CREATE TABLE restricted_entity
 );
 
 CREATE INDEX restricted_entity_path_idx ON entity USING GIST (path);
+
+ALTER TABLE restricted_entity ENABLE ROW LEVEL SECURITY;
+ALTER TABLE restricted_entity FORCE ROW LEVEL SECURITY;
 
 CREATE TABLE restricted_entity_permit
 (
@@ -26,11 +32,15 @@ CREATE TABLE restricted_entity_deny
 );
 
 CREATE OR REPLACE FUNCTION is_permitted(p_owner_path ltree, p_query text)
-    RETURNS boolean AS $$
+    RETURNS boolean AS
+$$
 DECLARE
     l_permit_path ltree;
-    l_deny_path text;
+    l_deny_path   text;
 BEGIN
+    RAISE NOTICE 'The value of l_permit_path is %', l_permit_path;
+    RAISE NOTICE 'The value of l_deny_path is %', l_deny_path;
+
     -- Get the first matching permit_path for the owner_path
     SELECT INTO l_permit_path permit_path
     FROM restricted_entity_permit
@@ -96,3 +106,7 @@ VALUES ('root.user.mike', 'root.user.mike');
 INSERT INTO restricted_entity_permit (owner_path, permit_path)
 VALUES ('root.user.mike', 'root.tenant.mikes_car_showroom');
 
+CREATE POLICY restricted_entity_policy ON restricted_entity
+    FOR SELECT USING (is_permitted(text2Ltree(current_setting('my.app_user')), ltree2text(path)));
+
+grant all on all tables in schema "public" to appuser;
