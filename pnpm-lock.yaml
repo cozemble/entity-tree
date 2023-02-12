@@ -1,8 +1,11 @@
 lockfileVersion: 5.4
 
 specifiers:
+  '@types/body-parser': ^1.19.2
   '@types/express': ^4.17.17
+  '@types/node': ^18.13.0
   '@types/pg': ^8.6.6
+  body-parser: ^1.20.1
   express: ^4.18.2
   nodemon: ^2.0.20
   pg: ^8.9.0
@@ -11,15 +14,18 @@ specifiers:
   typescript: ^4.9.5
 
 dependencies:
+  body-parser: 1.20.1
   express: 4.18.2
   pg: 8.9.0
   testcontainers: 9.1.2
 
 devDependencies:
+  '@types/body-parser': 1.19.2
   '@types/express': 4.17.17
+  '@types/node': 18.13.0
   '@types/pg': 8.6.6
   nodemon: 2.0.20
-  ts-node: 10.9.1_typescript@4.9.5
+  ts-node: 10.9.1_4bewfcp2iebiwuold25d6rgcsy
   typescript: 4.9.5
 
 packages:
@@ -1304,7 +1310,7 @@ packages:
     resolution: {integrity: sha512-N3WMsuqV66lT30CrXNbEjx4GEwlow3v6rr4mCcv6prnfwhS01rkgyFdjPNBYd9br7LpXV1+Emh01fHnq2Gdgrw==}
     dev: false
 
-  /ts-node/10.9.1_typescript@4.9.5:
+  /ts-node/10.9.1_4bewfcp2iebiwuold25d6rgcsy:
     resolution: {integrity: sha512-NtVysVPkxxrwFGUUxGYhfux8k78pQB3JqYBXlLRZgdGUqTO5wU/UyHop5p70iEbGhB7q5KmiZiU0Y3KlJrScEw==}
     hasBin: true
     peerDependencies:
@@ -1323,6 +1329,7 @@ packages:
       '@tsconfig/node12': 1.0.11
       '@tsconfig/node14': 1.0.3
       '@tsconfig/node16': 1.0.3
+      '@types/node': 18.13.0
       acorn: 8.8.2
       acorn-walk: 8.2.0
       arg: 4.1.3

@@ -1,8 +1,10 @@
+-- noinspection SqlNoDataSourceInspectionForFile
+
 CREATE TABLE restricted_entity
 (
     entity_id   VARCHAR NOT NULL UNIQUE,
     entity_name VARCHAR NOT NULL,
-    path        LTREE   NOT NULL,
+    path        LTREE   NOT NULL UNIQUE,
     data        JSONB   NOT NULL,
     PRIMARY KEY (entity_id)
 );
@@ -11,36 +13,40 @@ CREATE INDEX restricted_entity_path_idx ON entity USING GIST (path);
 
 CREATE TABLE restricted_entity_permit
 (
-    owner_path  LTREE NOT NULL,
+    owner_path  LTREE NOT NULL references restricted_entity (path),
     permit_path LTREE NOT NULL,
     PRIMARY KEY (owner_path, permit_path)
 );
 
 CREATE TABLE restricted_entity_deny
 (
-    owner_path LTREE NOT NULL,
-    deny_path  LTREE NOT NULL,
+    owner_path ltree NOT NULL references restricted_entity (path),
+    deny_path  text  NOT NULL,
     PRIMARY KEY (owner_path, deny_path)
 );
 
-CREATE OR REPLACE FUNCTION is_permitted(p_user_path ltree, p_entity_path ltree)
-    RETURNS BOOLEAN AS
-$$
+CREATE OR REPLACE FUNCTION is_permitted(p_owner_path ltree, p_query text)
+    RETURNS boolean AS $$
 DECLARE
-    v_result BOOLEAN;
+    l_permit_path ltree;
+    l_deny_path text;
 BEGIN
-    SELECT COALESCE((SELECT 1
-                     FROM restricted_entity_permit
-                     WHERE owner_path = p_user_path
-                       AND permit_path <@ p_entity_path), 0) > 0 AND COALESCE((SELECT 1
-                                                                               FROM restricted_entity_deny
-                                                                               WHERE owner_path = p_user_path
-                                                                                 AND deny_path <@ p_entity_path), 0) = 0
-    INTO v_result;
-    RETURN v_result;
+    -- Get the first matching permit_path for the owner_path
+    SELECT INTO l_permit_path permit_path
+    FROM restricted_entity_permit
+    WHERE owner_path = p_owner_path
+      AND permit_path <@ (SELECT path FROM restricted_entity WHERE entity_id = split_part(p_query, '.', 3) LIMIT 1);
+
+    -- Check if there is a matching deny_path for the owner_path
+    SELECT INTO l_deny_path deny_path
+    FROM restricted_entity_deny
+    WHERE owner_path = p_owner_path
+      AND (deny_path = '*' OR p_query LIKE deny_path || '%');
+
+    -- Return true if permit_path exists and deny_path does not exist
+    RETURN l_permit_path IS NOT NULL AND l_deny_path IS NULL;
 END;
 $$ LANGUAGE plpgsql;
-
 
 INSERT INTO restricted_entity (entity_id, entity_name, path, data)
 VALUES ('root', 'root', 'root', '{}');
@@ -76,7 +82,13 @@ VALUES ('cherrys_ice_cream_parlour', 'tenant', 'root.tenant.cherrys_ice_cream_pa
 }');
 
 INSERT INTO restricted_entity_deny (owner_path, deny_path)
-VALUES ('root.user', 'root.user');
+VALUES ('root.user.mike', 'root.user.*');
+
+INSERT INTO restricted_entity_deny (owner_path, deny_path)
+VALUES ('root.user.dan', 'root.user.*');
+
+INSERT INTO restricted_entity_deny (owner_path, deny_path)
+VALUES ('root.user.cherry', 'root.user.*');
 
 INSERT INTO restricted_entity_permit (owner_path, permit_path)
 VALUES ('root.user.mike', 'root.user.mike');
