@@ -9,6 +9,24 @@ const port = 3000
 
 let client: Client | null = null
 
+// get entities and children from unrestricted entity table
+app.get('/e/:id*', async (req, res) => {
+    const id = urlNameToLtree(req.path.substring(3))
+    const children = req.query.child ? ensureArray(req.query.child) : []
+    console.log(`GET ${id}, children: ${JSON.stringify(req.query.child)}`)
+    const result = await mandatoryClient().query("SELECT * FROM entity WHERE path = $1", [id])
+    if (result && result.rows && result.rows.length === 1) {
+        let entity: Entity = result.rows[0]
+        const childEntities = await fetchChildren(mandatoryClient(), id, children)
+        return res.setHeader("Content-type", "application/json").send({[entity.entity_name]: {...entity}, ...childEntities})
+    }
+    return res.status(404).send(`Not found: ${id}`)
+})
+
+// get entities and children from unrestricted entity table
+app.get('/u/:userId/*', async (req, res) => {
+    return res.setHeader("Content-type", "application/json").send({path: req.path, userId: req.params.userId})
+})
 
 async function distinctEntityNames(client: Client) {
     const entityNames = await client.query("select distinct(entity_name) from entity;")
@@ -52,20 +70,6 @@ function urlNameToLtree(name: string) {
     return name.replace(/\//g, '.')
 }
 
-
-app.get('/:id*', async (req, res) => {
-    const id = urlNameToLtree(req.path.substring(1))
-    const children = req.query.child ? ensureArray(req.query.child) : []
-    console.log(`GET ${id}, children: ${JSON.stringify(req.query.child)}`)
-    const result = await mandatoryClient().query("SELECT * FROM entity WHERE path = $1", [id])
-    if (result && result.rows && result.rows.length === 1) {
-        let entity: Entity = result.rows[0]
-        const childEntities = await fetchChildren(mandatoryClient(), id, children)
-        return res.setHeader("Content-type", "application/json").send({[entity.entity_name]: {...entity}, ...childEntities})
-    }
-    return res.status(404).send(`Not found: ${id}`)
-})
-
 function mandatoryClient(): Client {
     if (!client) {
         throw new Error("Client not initialized")
@@ -92,6 +96,7 @@ async function migrateDatabase(container: StartedPostgreSqlContainer) {
 
     await client.query(fs.readFileSync('./migrations/001-tables.sql', 'utf8'))
     await client.query(fs.readFileSync('./migrations/002-entities.sql', 'utf8'))
+    await client.query(fs.readFileSync('./migrations/003-restricted_entity.sql', 'utf8'))
 }
 
 function pgConnectString(container: StartedPostgreSqlContainer) {
@@ -101,11 +106,12 @@ function pgConnectString(container: StartedPostgreSqlContainer) {
 async function start() {
     console.log("Starting postgres...")
     const container = await new PostgreSqlContainer().start()
-    console.log("Postgres connect string = " + pgConnectString(container))
     console.log("Migrating database...")
     await migrateDatabase(container)
     app.listen(port, () => {
-        console.log(`Example app listening on port ${port}`)
+        console.log("Postgres connect string = " + pgConnectString(container))
+        console.log("\nTry http://localhost:3000/e/tenant/t1")
+        console.log("or http://localhost:3000/e/tenant/t1?child=record/rec1&child=model\n")
     })
 }
 

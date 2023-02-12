@@ -1,3 +1,5 @@
+-- noinspection SqlNoDataSourceInspectionForFile
+
 insert into entity(entity_id, entity_name, path, data)
 values ('t1', 'tenant', 'tenant.t1', '{"name": "Mike''s Car Showroom", "ownerId": "user.u1"}');
 
