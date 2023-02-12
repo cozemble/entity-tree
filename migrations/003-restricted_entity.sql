@@ -26,10 +26,11 @@ CREATE TABLE restricted_entity_deny
 );
 
 CREATE OR REPLACE FUNCTION is_permitted(p_owner_path ltree, p_query text)
-    RETURNS boolean AS $$
+    RETURNS boolean AS
+$$
 DECLARE
     l_permit_path ltree;
-    l_deny_path text;
+    l_deny_path   text;
 BEGIN
     -- Get the first matching permit_path for the owner_path
     SELECT INTO l_permit_path permit_path
@@ -79,6 +80,27 @@ VALUES ('dans_bakery', 'tenant', 'root.tenant.dans_bakery', '{
 INSERT INTO restricted_entity (entity_id, entity_name, path, data)
 VALUES ('cherrys_ice_cream_parlour', 'tenant', 'root.tenant.cherrys_ice_cream_parlour', '{
   "name": "Cherrys Ice Cream Parlour"
+}');
+
+INSERT INTO restricted_entity (entity_id, entity_name, path, data)
+VALUES ('car_model', 'model', 'root.tenant.mikes_car_showroom.model.car_model', '{
+  "name": "Car Model",
+  "properties": [
+    "make",
+    "model",
+    "year",
+    "color"
+  ]
+}');
+
+INSERT INTO restricted_entity (entity_id, entity_name, path, data)
+VALUES ('customer_model', 'model', 'root.tenant.mikes_car_showroom.model.customer_model', '{
+  "name": "Customer Model",
+  "properties": [
+    "name",
+    "address",
+    "phone"
+  ]
 }');
 
 INSERT INTO restricted_entity_deny (owner_path, deny_path)
