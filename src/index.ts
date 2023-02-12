@@ -9,18 +9,17 @@ const app = express()
 app.use(bodyParser.urlencoded({ extended: true }));
 const port = 3000
 
-let superUser: Client | null = null
-let appUser: Client | null = null
+let client: Client | null = null
 
 // get entities and children from unrestricted entity table
 app.get('/e/:id*', async (req, res) => {
     const id = urlNameToLtree(req.path.substring(3))
     const children = req.query.child ? ensureArray(req.query.child) : []
     console.log(`GET ${id}, children: ${JSON.stringify(req.query.child)}`)
-    let result = await mandatorySuperUser().query("SELECT * FROM entity WHERE path = $1", [id])
+    const result = await mandatoryClient().query("SELECT * FROM entity WHERE path = $1", [id])
     if (result && result.rows && result.rows.length === 1) {
         let entity: Entity = result.rows[0]
-        const childEntities = await fetchChildren(mandatorySuperUser(), id, children)
+        const childEntities = await fetchChildren(mandatoryClient(), id, children)
         return res.setHeader("Content-type", "application/json").send({[entity.entity_name]: {...entity}, ...childEntities})
     }
     return res.status(404).send(`Not found: ${id}`)
@@ -33,12 +32,7 @@ app.get('/u/:userId/*', async (req, res) => {
 
 async function runRawSql(sql:string) {
     try {
-        let result = await mandatoryAppUser().query(sql)
-        console.log({result})
-        if(Array.isArray(result)) {
-            result = result[result.length - 1]
-        }
-
+        const result = await mandatoryClient().query(sql)
         if (result && result.rows) {
             return result.rows
         }
@@ -50,7 +44,6 @@ async function runRawSql(sql:string) {
 
 app.post('/sql', async (req, res) => {
     const result = await runRawSql(req.body.sql as string);
-
     return res.setHeader("Content-type", "text/html").send(`<form method="post" action="/sql">
     <textarea name="sql" style="width: 100%; height: 100px">${req.body.sql}</textarea>
     <input type="submit" value="Submit">
@@ -113,18 +106,11 @@ function urlNameToLtree(name: string) {
     return name.replace(/\//g, '.')
 }
 
-function mandatorySuperUser(): Client {
-    if (!superUser) {
+function mandatoryClient(): Client {
+    if (!client) {
         throw new Error("Client not initialized")
     }
-    return superUser
-}
-
-function mandatoryAppUser(): Client {
-    if (!appUser) {
-        throw new Error("Client not initialized")
-    }
-    return appUser
+    return client
 }
 
 function ensureArray(child: any) {
@@ -135,34 +121,22 @@ function ensureArray(child: any) {
 }
 
 async function migrateDatabase(container: StartedPostgreSqlContainer) {
-    superUser = new Client({
+    client = new Client({
         host: container.getHost(),
         port: container.getPort(),
         database: container.getDatabase(),
         user: container.getUsername(),
         password: container.getPassword(),
     })
-    await superUser.connect()
+    await client.connect()
 
-    await superUser.query(fs.readFileSync('./migrations/001-tables.sql', 'utf8'))
-    await superUser.query(fs.readFileSync('./migrations/002-entities.sql', 'utf8'))
-    await superUser.query(fs.readFileSync('./migrations/003-restricted_entity.sql', 'utf8'))
+    await client.query(fs.readFileSync('./migrations/001-tables.sql', 'utf8'))
+    await client.query(fs.readFileSync('./migrations/002-entities.sql', 'utf8'))
+    await client.query(fs.readFileSync('./migrations/003-restricted_entity.sql', 'utf8'))
 }
 
-function pgConnectString(container: StartedPostgreSqlContainer, username = container.getUsername(), password = container.getPassword()) {
-    return `postgres://${username}:${password}@${container.getHost()}:${container.getPort()}/${container.getDatabase()}`
-}
-
-async function establishAppUser(container: StartedPostgreSqlContainer) {
-    appUser = new Client({
-        host: container.getHost(),
-        port: container.getPort(),
-        database: container.getDatabase(),
-        user: "appuser",
-        password: "appuser"
-    })
-    await appUser.connect()
-
+function pgConnectString(container: StartedPostgreSqlContainer) {
+    return `postgres://${container.getUsername()}:${container.getPassword()}@${container.getHost()}:${container.getPort()}/${container.getDatabase()}`
 }
 
 async function start() {
@@ -170,10 +144,8 @@ async function start() {
     const container = await new PostgreSqlContainer().start()
     console.log("Migrating database...")
     await migrateDatabase(container)
-    await establishAppUser(container)
     app.listen(port, () => {
-        console.log("Postgres super user connect string = " + pgConnectString(container))
-        console.log("Postgres app user connect string = " + pgConnectString(container, "appuser", "appuser"))
+        console.log("Postgres connect string = " + pgConnectString(container))
         console.log("\nTry http://localhost:3000/e/tenant/t1")
         console.log("or http://localhost:3000/e/tenant/t1?child=record/rec1&child=model\n")
         console.log("or http://localhost:3000/sql\n")
